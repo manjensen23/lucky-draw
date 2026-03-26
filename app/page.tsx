@@ -27,11 +27,6 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [winnerCountOverride, setWinnerCountOverride] = useState<number | null>(null);
 
-  const [isAddingCategory, setIsAddingCategory] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [newCategoryStock, setNewCategoryStock] = useState<number>(0);
-  const [isActionLoading, setIsActionLoading] = useState(false);
-
   const supabase = createClient();
   const stopTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -166,52 +161,6 @@ export default function Home() {
     }
   };
 
-  const handleAddCategory = async () => {
-    if (!newCategoryName.trim()) return;
-    setIsActionLoading(true);
-    try {
-      const res = await fetch('/api/categories', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newCategoryName.trim(), stock: newCategoryStock })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to add category');
-      setCategories([...categories, data.category].sort((a, b) => a.name.localeCompare(b.name)));
-      setSelectedCategory(data.category.name);
-      setNewCategoryName('');
-      setNewCategoryStock(0);
-      setIsAddingCategory(false);
-    } catch (err: any) {
-      alert(err.message);
-    }
-    setIsActionLoading(false);
-  };
-
-  const handleDeleteCategory = async () => {
-    if (!selectedCategory) return;
-    const catToDelete = categories.find(c => c.name === selectedCategory);
-    if (!catToDelete) return;
-
-    if (!confirm(`Hapus kategori "${selectedCategory}"?`)) return;
-
-    setIsActionLoading(true);
-    try {
-      const res = await fetch('/api/categories', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: catToDelete.id })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Gagal menghapus kategori');
-
-      setCategories(categories.filter(c => c.id !== catToDelete.id));
-      setSelectedCategory('');
-    } catch (err: any) {
-      alert(err.message);
-    }
-    setIsActionLoading(false);
-  };
 
   const handleVoidWinner = async (winnerId: number) => {
     const res = await fetch('/api/winners/void', {
@@ -229,6 +178,7 @@ export default function Home() {
   const resetDraw = () => {
     setDrawingFinished(false);
     setWinners([]);
+    fetchCategories();
   };
 
   if (!settings) return <div className="min-h-screen bg-gray-900 flex items-center justify-center"><div className="animate-spin h-10 w-10 border-4 border-white border-t-transparent rounded-full"></div></div>;
@@ -305,65 +255,16 @@ export default function Home() {
             <div className="w-full bg-black/40 backdrop-blur-md border border-white/20 p-6 rounded-3xl flex flex-col md:flex-row gap-6 items-center justify-between shadow-2xl z-10 transition-all">
               <div className="flex-1 w-full">
                 <label className="block text-gold-300 text-sm font-bold tracking-wider mb-3 uppercase">Kategori Hadiah <span className="text-red-400">*wajib</span></label>
-                {!isAddingCategory ? (
-                  <div className="flex gap-3">
-                    <select
-                      className="flex-1 bg-gray-900 border border-white/10 text-white rounded-xl px-5 py-3 focus:border-gold-400 focus:ring-1 focus:ring-gold-400 outline-none appearance-none font-medium shadow-inner transition-colors"
-                      value={selectedCategory}
-                      onChange={(e) => setSelectedCategory(e.target.value)}
-                    >
-                      <option value="">-- Pilih Hadiah --</option>
-                      {categories.map(c => <option key={c.id} value={c.name}>{c.name} (Sisa: {c.stock})</option>)}
-                    </select>
-                    {selectedCategory && (
-                      <button
-                        onClick={handleDeleteCategory}
-                        disabled={isActionLoading}
-                        title="Hapus Kategori"
-                        className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-500 px-4 py-3 rounded-xl font-bold transition-all hover:scale-105 active:scale-95 disabled:opacity-50 flex items-center justify-center flex-shrink-0"
-                      >
-                        <Trash2 size={20} />
-                      </button>
-                    )}
-                    <button
-                      onClick={() => setIsAddingCategory(true)}
-                      className="bg-white/10 hover:bg-white/20 border border-white/10 text-white px-6 py-3 rounded-xl font-bold transition-all hover:scale-105 active:scale-95 flex-shrink-0 whitespace-nowrap"
-                    >
-                      + Baru
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Nama Hadiah Baru"
-                      className="flex-1 bg-gray-900 border border-white/10 text-white rounded-xl px-5 py-3 focus:border-gold-400 focus:ring-1 focus:ring-gold-400 outline-none shadow-inner w-full min-w-[150px]"
-                      value={newCategoryName}
-                      onChange={(e) => setNewCategoryName(e.target.value)}
-                    />
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="Stok"
-                      className="w-24 bg-gray-900 border border-white/10 text-white rounded-xl px-4 py-3 focus:border-gold-400 focus:ring-1 focus:ring-gold-400 outline-none shadow-inner"
-                      value={newCategoryStock}
-                      onChange={(e) => setNewCategoryStock(parseInt(e.target.value) || 0)}
-                    />
-                    <button
-                      onClick={handleAddCategory}
-                      disabled={isActionLoading || !newCategoryName.trim()}
-                      className="bg-gold-500 hover:bg-gold-400 disabled:opacity-50 text-gray-900 px-5 py-3 rounded-xl font-bold transition-all shadow-lg hover:scale-105 active:scale-95 flex-shrink-0"
-                    >
-                      Simpan
-                    </button>
-                    <button
-                      onClick={() => setIsAddingCategory(false)}
-                      className="bg-white/10 hover:bg-white/20 text-white px-5 py-3 rounded-xl font-bold transition-all hover:scale-105 active:scale-95 flex-shrink-0"
-                    >
-                      Batal
-                    </button>
-                  </div>
-                )}
+                <div className="flex gap-3">
+                  <select
+                    className="flex-1 bg-gray-900 border border-white/10 text-white rounded-xl px-5 py-3 focus:border-gold-400 focus:ring-1 focus:ring-gold-400 outline-none appearance-none font-medium shadow-inner transition-colors"
+                    value={selectedCategory}
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                  >
+                    <option value="">-- Pilih Hadiah --</option>
+                    {categories.map(c => <option key={c.id} value={c.name}>{c.name} (Sisa: {c.stock})</option>)}
+                  </select>
+                </div>
               </div>
 
               <div className="w-full md:w-56">
