@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Trash2, Plus, Loader2 } from 'lucide-react';
+import { Trash2, Plus, Loader2, Pencil, X, Check } from 'lucide-react';
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<{id: number, name: string, stock: number}[]>([]);
@@ -10,6 +10,10 @@ export default function CategoriesPage() {
   const [newCat, setNewCat] = useState('');
   const [newStock, setNewStock] = useState<number>(0);
   const [isAdding, setIsAdding] = useState(false);
+  
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editStock, setEditStock] = useState<number>(0);
 
   const supabase = createClient();
 
@@ -45,6 +49,25 @@ export default function CategoriesPage() {
       alert(err.message);
     }
     setIsAdding(false);
+  };
+
+  const handleUpdate = async (id: number) => {
+    if (!editName.trim()) return;
+    
+    try {
+      const res = await fetch('/api/categories', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, name: editName.trim(), stock: editStock })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update category');
+      
+      setCategories(categories.map(c => c.id === id ? data.category : c).sort((a,b) => a.name.localeCompare(b.name)));
+      setEditingId(null);
+    } catch (err: any) {
+      alert(err.message);
+    }
   };
 
   const handleDelete = async (id: number) => {
@@ -120,19 +143,70 @@ export default function CategoriesPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {categories.map((cat) => (
                 <div key={cat.id} className="flex flex-col p-4 rounded-xl border border-gray-100 bg-gray-50 hover:border-gray-200 transition-colors">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-bold text-gray-800 break-words">{cat.name}</span>
-                    <button
-                      onClick={() => handleDelete(cat.id)}
-                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Delete Category"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                  <div className="text-sm font-medium text-gray-600 bg-white px-3 py-1.5 rounded-lg border border-gray-100 w-fit">
-                    Stok: <span className="text-gold-600 font-bold ml-1">{cat.stock}</span>
-                  </div>
+                  {editingId === cat.id ? (
+                    <div className="flex flex-col gap-2">
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-gold-500 outline-none"
+                      />
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-600">Stok:</span>
+                        <input
+                          type="number"
+                          min="0"
+                          value={editStock}
+                          onChange={(e) => setEditStock(parseInt(e.target.value) || 0)}
+                          className="w-20 px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-gold-500 outline-none"
+                        />
+                        <div className="flex-1"></div>
+                        <button
+                          onClick={() => handleUpdate(cat.id)}
+                          className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-colors"
+                          title="Save Changes"
+                        >
+                          <Check size={18} />
+                        </button>
+                        <button
+                          onClick={() => setEditingId(null)}
+                          className="p-2 text-gray-500 hover:bg-gray-200 rounded-lg transition-colors"
+                          title="Cancel"
+                        >
+                          <X size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-gray-800 break-words">{cat.name}</span>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => {
+                              setEditingId(cat.id);
+                              setEditName(cat.name);
+                              setEditStock(cat.stock);
+                            }}
+                            className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Edit Category"
+                          >
+                            <Pencil size={18} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(cat.id)}
+                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Delete Category"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="text-sm font-medium text-gray-600 bg-white px-3 py-1.5 rounded-lg border border-gray-100 w-fit">
+                        Stok: <span className="text-gold-600 font-bold ml-1">{cat.stock}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
